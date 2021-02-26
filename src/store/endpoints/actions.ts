@@ -1,13 +1,13 @@
 import { ActionTree } from 'vuex'
 import { StateInterface } from '../index'
 import { EndpointsInterface, EndpointInterface, LockInterface } from './state'
-import { Loading, Notify, copyToClipboard  } from 'quasar'
+import { Loading, Notify, copyToClipboard } from 'quasar'
 import axios from 'axios'
 import api from 'src/app.env'
 
 const actions: ActionTree<EndpointsInterface, StateInterface> = {
 
-  loadEndpoints ({ commit, rootState }, payload): void {
+  loadEndpoints ({ commit, rootState }): void {
     Loading.show()
     axios.get(`${api}/endpoints`, {
       headers: {
@@ -137,14 +137,14 @@ const actions: ActionTree<EndpointsInterface, StateInterface> = {
         position: 'top-right',
         message: `Endpoint ${payload.internalIp} locked`
       })
-      copyToClipboard(data.lockId)
+      copyToClipboard(`k1://lock:${data.lockId}/`)
         .then(() => {
           Notify.create({
             type: 'positive',
             color: 'positive',
             timeout: 3000,
             position: 'top-right',
-            message: `Endpoint connect code is copied to clipboard! It is available for 15 minutes`
+            message: 'Endpoint connect code is copied to clipboard! It is available for 15 minutes'
           })
         })
         .catch((e) => {
@@ -168,7 +168,7 @@ const actions: ActionTree<EndpointsInterface, StateInterface> = {
       headers: {
         Authorization: `Bearer ${rootState.settings.userData.apiToken}`
       }
-    }).then((response) => {
+    }).then(() => {
       Notify.create({
         type: 'positive',
         color: 'positive',
@@ -191,13 +191,36 @@ const actions: ActionTree<EndpointsInterface, StateInterface> = {
       Loading.hide()
     })
   },
-  refreshEndpoint ({ commit }, payload: EndpointInterface): void {
-    Notify.create({
-      type: 'positive',
-      color: 'info',
-      timeout: 3000,
-      position: 'top-right',
-      message: `Endpoint ${payload.internalIp} refreshed`
+  refreshEndpoint ({ commit, rootState }, payload: EndpointInterface): void {
+    Loading.show()
+    axios.get(`${api}/endpoints/locks/${payload.id}`, {
+      headers: {
+        Authorization: `Bearer ${rootState.settings.userData.apiToken}`
+      }
+    }).then((response) => {
+      Notify.create({
+        type: 'positive',
+        color: 'info',
+        timeout: 3000,
+        position: 'top-right',
+        message: `Endpoint ${payload.internalIp} locks state refreshed`
+      })
+      const data = (<EndpointInterface> response.data)
+      if (data.locks.length === 0) {
+        commit('unlockEndpoint', payload)
+      }
+      Loading.hide()
+    }).catch((e) => {
+      Loading.hide()
+      console.error(e)
+      Notify.create({
+        type: 'negative',
+        color: 'negative',
+        timeout: 3000,
+        position: 'top-right',
+        message: `Error refresh lock state of endpoint ${payload.internalIp}`
+      })
+      Loading.hide()
     })
   }
 }
